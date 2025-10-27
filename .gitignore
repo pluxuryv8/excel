@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Output
+out/
+*.xlsx
+*.xls
+
+# Temporary files
+*.tmp
+*.log
+
+# Personal data files
+данные.xlsx
+Курсовая Иван Шведолезбиянов.xlsx
+ipc_RF_fo_sub_09-2025.xlsx
+
+# Empty directories
+эксель/
+

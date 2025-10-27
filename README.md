@@ -8,7 +8,6 @@
   
   **Professional Statistical Analysis Tool with Space-Themed GUI**
   
-  <img src="https://raw.githubusercontent.com/yourusername/excel-pro-master/main/assets/screenshot.png" width="600" alt="Excel Pro Master Screenshot">
   
 </div>
 
@@ -25,16 +24,16 @@
 
 ### Quick Start (Windows)
 ```bash
-git clone https://github.com/yourusername/excel-pro-master.git
-cd excel-pro-master
+git clone https://github.com/pluxuryv8/excel.git
+cd excel
 START.bat
 ```
 
 ### Manual Installation
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/excel-pro-master.git
-cd excel-pro-master
+git clone https://github.com/pluxuryv8/excel.git
+cd excel
 
 # Install dependencies
 pip install -r requirements.txt

@@ -10,6 +10,7 @@ import json
 import tempfile
 from pathlib import Path
 from typing import List, Dict, Tuple, Any, Optional
+from io import BytesIO
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -757,21 +758,19 @@ class ExcelReportGenerator:
         
         plt.tight_layout()
         
-        # Сохраняем график во временный файл
-        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
-            chart_path = tmp_file.name
-        
-        plt.savefig(chart_path, dpi=100, bbox_inches='tight')
+        # Сохраняем график в память (без создания файла!)
+        img_buffer = BytesIO()
+        plt.savefig(img_buffer, format='png', dpi=100, bbox_inches='tight')
         plt.close()
         
-        # Вставляем график в Excel
-        sheet.insert_image('A3', chart_path, {'x_scale': 0.9, 'y_scale': 0.9})
+        # Перематываем буфер в начало
+        img_buffer.seek(0)
         
-        # Очистка временного файла
-        try:
-            os.remove(chart_path)
-        except:
-            pass
+        # Вставляем график в Excel прямо из памяти
+        sheet.insert_image('A3', 'dummy.png', {'image_data': img_buffer, 'x_scale': 0.9, 'y_scale': 0.9})
+        
+        # Закрываем буфер
+        img_buffer.close()
         
         return sheet
     
@@ -1284,9 +1283,9 @@ class ExcelProMasterGUI:
             'activeforeground': SPACE_COLORS['accent']
         }
         
-        self.include_charts = tk.BooleanVar(value=True)
+        self.include_charts = tk.BooleanVar(value=False)  # Отключено по умолчанию
         tk.Checkbutton(frame, 
-                      text="◆ Создавать графики и диаграммы", 
+                      text="◆ Создавать графики (ВНИМАНИЕ: может вызвать ошибки!)", 
                       variable=self.include_charts,
                       **checkbox_style).grid(row=3, column=0, sticky=tk.W, pady=3)
         

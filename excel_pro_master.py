@@ -536,6 +536,7 @@ class ExcelReportGenerator:
         row_start = 4
         n = len(data)
         mean = analyzer.results['mean']
+        stats_start_row = 4  # Объявляем переменную перед использованием
         
         # Данные
         for i, value in enumerate(data):
@@ -578,7 +579,7 @@ class ExcelReportGenerator:
                                self.formats['highlight'])
         
         # Статистические показатели в правой части
-        stats_start_row = 4
+        # stats_start_row уже объявлена выше
         
         # Основные показатели
         sheet.write(stats_start_row, 9, 'Показатель', self.formats['header'])

@@ -757,15 +757,17 @@ class ExcelReportGenerator:
         
         plt.tight_layout()
         
-        # Сохраняем график
-        chart_path = tempfile.mktemp(suffix='.png')
+        # Сохраняем график во временный файл
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+            chart_path = tmp_file.name
+        
         plt.savefig(chart_path, dpi=100, bbox_inches='tight')
         plt.close()
         
         # Вставляем график в Excel
         sheet.insert_image('A3', chart_path, {'x_scale': 0.9, 'y_scale': 0.9})
         
-        # Очистка
+        # Очистка временного файла
         try:
             os.remove(chart_path)
         except:

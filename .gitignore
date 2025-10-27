@@ -4,39 +4,49 @@ __pycache__/
 *$py.class
 *.so
 .Python
-*.egg-info/
-dist/
-build/
-
-# Environments
-venv/
 env/
+venv/
 ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Output
-out/
+# Data files
+data/
+*.txt
+*.csv
 *.xlsx
 *.xls
 
 # Temporary files
 *.tmp
-*.log
+*.temp
+~$*
 
-# Personal data files
-данные.xlsx
-Курсовая Иван Шведолезбиянов.xlsx
-ipc_RF_fo_sub_09-2025.xlsx
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# Empty directories
-эксель/
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
+# Output
+out/
+output/
+results/

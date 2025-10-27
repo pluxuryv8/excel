@@ -1,95 +1,94 @@
-# 🚀 Excel Pro Master | Space Edition
+# 🚀 Excel Pro Master | Космическая версия
 
 <div align="center">
   
   ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python)
-  ![Excel](https://img.shields.io/badge/Excel-Reports-green?style=for-the-badge&logo=microsoft-excel)
-  ![Statistics](https://img.shields.io/badge/Statistics-Analysis-purple?style=for-the-badge&logo=chart-dot-com)
+  ![Excel](https://img.shields.io/badge/Excel-Отчёты-green?style=for-the-badge&logo=microsoft-excel)
+  ![Статистика](https://img.shields.io/badge/Статистика-Анализ-purple?style=for-the-badge&logo=chart-dot-com)
   
-  **Professional Statistical Analysis Tool with Space-Themed GUI**
-  
+  **Профессиональный инструмент статистического анализа с космическим интерфейсом**
   
 </div>
 
-## ✨ Features
+## ✨ Возможности
 
-- 🎯 **Complete Statistical Analysis** - Mean, Variance, Standard Deviation, Quartiles, etc.
-- 📊 **Professional Charts** - Histograms, Q-Q Plots, Box Plots, Density Distributions
-- 🔬 **Normality Tests** - Shapiro-Wilk, Pearson χ², Kolmogorov-Smirnov, Romanovsky
-- 🎨 **Space-Themed GUI** - Modern dark theme with cosmic aesthetics
-- 📈 **Excel Formulas** - All calculations use native Excel formulas
-- 🚀 **Adaptive** - Works with any number of data rows
+- 🎯 **Полный статистический анализ** - Среднее, дисперсия, СКО, квартили и т.д.
+- 📊 **Профессиональные графики** - Гистограммы, Q-Q графики, ящики с усами, плотности распределения
+- 🔬 **Тесты на нормальность** - Шапиро-Уилка, Пирсона χ², Колмогорова-Смирнова, Романовского
+- 🎨 **Космический интерфейс** - Современная тёмная тема в стиле SpaceX
+- 📈 **Excel формулы** - Все расчёты используют нативные формулы Excel
+- 🚀 **Адаптивность** - Работает с любым количеством строк данных
 
-## 🛠️ Installation
+## 🛠️ Установка
 
-### Quick Start (Windows)
+### Быстрый старт (Windows)
 ```bash
 git clone https://github.com/pluxuryv8/excel.git
 cd excel
 START.bat
 ```
 
-### Manual Installation
+### Ручная установка
 ```bash
-# Clone repository
+# Клонировать репозиторий
 git clone https://github.com/pluxuryv8/excel.git
 cd excel
 
-# Install dependencies
+# Установить зависимости
 pip install -r requirements.txt
 
-# Run application
+# Запустить приложение
 python excel_pro_master.py
 ```
 
-## 📝 Usage
+## 📝 Как использовать
 
-1. **Launch the application** via `START.bat` or `python excel_pro_master.py`
-2. **Input your data** in format:
+1. **Запустите приложение** через `START.bat` или `python excel_pro_master.py`
+2. **Введите данные** в формате:
    ```
    1 100.55
    2 99.87
    3 101.23
    ...
    ```
-3. **Click "▶ LAUNCH ANALYSIS"**
-4. **Get professional Excel report** with complete analysis
+3. **Нажмите "▶ LAUNCH ANALYSIS"**
+4. **Получите профессиональный Excel отчёт** с полным анализом
 
-## 📊 Output Report Includes
+## 📊 Что включает отчёт
 
-### Statistical Analysis
-- ✅ Descriptive statistics with Excel formulas
-- ✅ Confidence intervals (95%)
-- ✅ Moments (skewness, kurtosis)
-- ✅ Outlier detection (IQR, 3-sigma, Grubbs)
+### Статистический анализ
+- ✅ Описательная статистика с формулами Excel
+- ✅ Доверительные интервалы (95%)
+- ✅ Моменты распределения (асимметрия, эксцесс)
+- ✅ Обнаружение выбросов (IQR, 3-сигма, Граббс)
 
-### Normality Testing
-- ✅ Shapiro-Wilk test
-- ✅ Pearson's chi-square test
-- ✅ Kolmogorov-Smirnov test
-- ✅ Romanovsky criterion
+### Проверка нормальности
+- ✅ Критерий Шапиро-Уилка
+- ✅ Критерий хи-квадрат Пирсона
+- ✅ Критерий Колмогорова-Смирнова
+- ✅ Критерий Романовского
 
-### Professional Visualizations
-- 📊 Histogram with density curve
-- 📈 Q-Q plot for normality check
-- 📉 Box plot with outliers
-- 📊 Empirical vs theoretical density comparison
+### Профессиональная визуализация
+- 📊 Гистограмма с кривой плотности
+- 📈 Q-Q график для проверки нормальности
+- 📉 Ящик с усами для выбросов
+- 📊 Сравнение эмпирической и теоретической плотности
 
-## 🎨 Space Theme Interface
+## 🎨 Космический интерфейс
 
-The application features a modern space-themed GUI with:
-- 🌌 Dark cosmic background
-- 🔵 Neon blue accents
-- ⚡ Smooth animations
-- 🎯 Intuitive controls
+Приложение имеет современный космический дизайн:
+- 🌌 Тёмный космический фон (#0a0a0a)
+- 🔵 Неоновые голубые акценты (#00d4ff)
+- ✨ ASCII арт элементы
+- 🎯 Интуитивное управление
 
-## 📋 Requirements
+## 📋 Требования
 
 - Python 3.8+
 - Windows 7/10/11
-- ~100MB free space
+- ~100MB свободного места
 
-### Dependencies
+### Зависимости
 ```
 numpy>=1.21.0
 pandas>=1.3.0
@@ -99,61 +98,86 @@ seaborn>=0.11.0
 xlsxwriter>=3.0.0
 ```
 
-## 🚀 Features Highlights
+## 🚀 Ключевые особенности
 
-### Adaptive Data Processing
-The tool automatically adapts to any number of data rows:
-- Supports 10-1000+ data points
-- Automatic formula range adjustment
-- Dynamic chart generation
+### Адаптивная обработка данных
+Инструмент автоматически подстраивается под любое количество данных:
+- Поддержка от 10 до 1000+ точек данных
+- Автоматическая корректировка диапазонов формул
+- Динамическая генерация графиков
 
-### Excel Integration
-- Native Excel formulas (not just values)
-- Professional formatting
-- Multiple worksheets
-- Ready for presentation
+### Интеграция с Excel
+- Нативные формулы Excel (не просто значения)
+- Профессиональное форматирование
+- Несколько листов с разными анализами
+- Готово к презентации
 
-### Space-Themed Design
+### Космический дизайн
 ```
 ╔═══════════════════════════════════════════════╗
 ║  EXCEL PRO MASTER ◆ SPACE EDITION            ║
 ╚═══════════════════════════════════════════════╝
+
+◈ Statistical Analysis System ◈
+◆ DATA-48    ◆ DATA-25    ◆ CONFIG
+
+◈ MISSION CONTROL ◈
+▶ LAUNCH ANALYSIS
 ```
 
-## 📁 Project Structure
+## 📁 Структура проекта
 
 ```
-excel-pro-master/
-├── excel_pro_master.py   # Main application (all-in-one)
-├── START.bat             # Windows launcher
-├── requirements.txt      # Python dependencies
-├── README.md            # Documentation
-└── .gitignore           # Git ignore rules
+excel/
+├── excel_pro_master.py   # Главное приложение (всё в одном)
+├── START.bat            # Запуск для Windows
+├── requirements.txt     # Python зависимости
+├── README.md           # Документация
+└── .gitignore          # Правила Git
 ```
 
-## 🤝 Contributing
+## 💡 Примеры использования
 
-Contributions are welcome! Feel free to:
-- Report bugs
-- Suggest features
-- Submit pull requests
+### Для курсовой работы
+- Вставьте 48 строк данных в первую вкладку
+- Получите полный анализ с формулами
+- Все критерии нормальности включены
 
-## 📄 License
+### Для лабораторной
+- Используйте вкладку на 25 строк
+- Быстрый анализ малой выборки
+- Автоматические выводы
 
-MIT License - feel free to use for any purpose
+### Для любого объёма данных
+- Программа адаптируется под ваши данные
+- От 5 до 1000+ строк
+- Корректные формулы для любого n
 
-## 🌟 Acknowledgments
+## 🤝 Вклад в проект
 
-- Built with Python and love for statistics
-- Inspired by NASA/SpaceX aesthetics
-- Created for data analysis enthusiasts
+Приветствуются любые улучшения:
+- Сообщения об ошибках
+- Предложения функций
+- Pull request'ы
+
+## 📄 Лицензия
+
+MIT License - используйте свободно для любых целей
+
+## 🌟 Благодарности
+
+- Создано с Python и любовью к статистике
+- Вдохновлено эстетикой NASA/SpaceX
+- Для студентов и аналитиков данных
 
 ---
 
 <div align="center">
   
-  **Made with 🚀 by Data Scientists for Data Scientists**
+  **Сделано с 🚀 для упрощения статистического анализа**
   
-  ⭐ Star this repo if you find it useful!
+  ⭐ Поставьте звезду, если проект полезен!
+  
+  **Версия 2.0 | Space Edition**
   
 </div>

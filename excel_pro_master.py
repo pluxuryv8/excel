@@ -35,6 +35,7 @@ rcParams['axes.unicode_minus'] = False
 # Excel
 import xlsxwriter
 from xlsxwriter.utility import xl_rowcol_to_cell, xl_col_to_name
+import subprocess
 
 # GUI
 import tkinter as tk
@@ -239,6 +240,48 @@ class StatisticalAnalyzer:
         except:
             tests['ks'] = None
         
+        # Критерий Смирнова (модифицированный)
+        try:
+            # Вычисляем эмпирическую функцию распределения
+            sorted_data = np.sort(self.data)
+            n = len(self.data)
+            # Стандартизируем данные
+            z_sorted = (sorted_data - self.results['mean']) / self.results['std']
+            
+            # Вычисляем максимальное отклонение
+            d_plus = []
+            d_minus = []
+            for i in range(n):
+                # Теоретическая функция распределения (нормальная)
+                F_theoretical = norm.cdf(z_sorted[i])
+                # Эмпирическая функция распределения
+                F_empirical = (i + 1) / n
+                F_empirical_prev = i / n
+                
+                d_plus.append(F_empirical - F_theoretical)
+                d_minus.append(F_theoretical - F_empirical_prev)
+            
+            D = max(max(d_plus), max(d_minus))
+            
+            # Критическое значение (приблизительное)
+            if n <= 20:
+                d_critical = 0.294  # для α = 0.05
+            elif n <= 30:
+                d_critical = 0.242
+            elif n <= 40:
+                d_critical = 0.210
+            else:
+                d_critical = 1.36 / np.sqrt(n)
+            
+            tests['smirnov'] = {
+                'statistic': D,
+                'critical_value': d_critical,
+                'is_normal': D <= d_critical,
+                'name': 'Смирнова'
+            }
+        except:
+            tests['smirnov'] = None
+        
         return tests
     
     def detect_outliers(self, method='iqr') -> Dict[str, Any]:
@@ -260,7 +303,7 @@ class StatisticalAnalyzer:
                 'count': len(outlier_indices)
             }
         
-        # Метод 3-сигм
+        # Метод 3-сигм (Райта)
         if method == '3sigma' or method == 'all':
             lower_limit = self.results['mean'] - 3 * self.results['std']
             upper_limit = self.results['mean'] + 3 * self.results['std']
@@ -276,19 +319,68 @@ class StatisticalAnalyzer:
         
         # Критерий Граббса
         if method == 'grubbs' or method == 'all':
-            # Упрощенный критерий Граббса для максимального значения
-            g_max = (self.results['max'] - self.results['mean']) / self.results['std']
-            g_min = (self.results['mean'] - self.results['min']) / self.results['std']
+            sorted_data = np.sort(self.data)
+            z_scores = np.abs((self.data - self.results['mean']) / self.results['std'])
+            max_z = np.max(z_scores)
+            max_idx = np.argmax(z_scores)
             
-            # Критическое значение (приблизительное)
-            t_critical = stats.t.ppf(1 - 0.05/(2*self.n), self.n - 2)
-            g_critical = ((self.n - 1) / np.sqrt(self.n)) * np.sqrt(t_critical**2 / (self.n - 2 + t_critical**2))
+            # Критическое значение
+            alpha = 0.05
+            t_critical = stats.t.ppf(1 - alpha/(2*self.n), self.n - 2)
+            g_critical = ((self.n - 1) * t_critical) / np.sqrt(self.n * (self.n - 2 + t_critical**2))
             
             outliers['grubbs'] = {
-                'g_max': g_max,
-                'g_min': g_min,
-                'g_critical': g_critical,
-                'has_outliers': (g_max > g_critical) or (g_min > g_critical)
+                'max_z_score': max_z,
+                'critical_value': g_critical,
+                'outlier_index': max_idx if max_z > g_critical else None,
+                'outlier_value': self.data[max_idx] if max_z > g_critical else None,
+                'has_outliers': max_z > g_critical
+            }
+        
+        # Критерий Шарлье
+        if method == 'sharlie' or method == 'all':
+            # Считаем количество точек за пределами 3σ
+            z_scores = np.abs((self.data - self.results['mean']) / self.results['std'])
+            outlier_count = np.sum(z_scores > 3)
+            
+            outliers['sharlie'] = {
+                'outlier_count': int(outlier_count),
+                'threshold': 3,
+                'has_outliers': outlier_count > 0
+            }
+        
+        # Критерий Ирвина
+        if method == 'irwin' or method == 'all':
+            sorted_data = np.sort(self.data)
+            diffs = np.diff(sorted_data)
+            lambda_values = diffs / self.results['std']
+            max_lambda = np.max(lambda_values)
+            max_lambda_idx = np.argmax(lambda_values)
+            
+            # Критическое значение (упрощенное)
+            lambda_critical = 1.7  # для n ≈ 50
+            
+            outliers['irwin'] = {
+                'max_lambda': max_lambda,
+                'critical_value': lambda_critical,
+                'outlier_index': max_lambda_idx if max_lambda > lambda_critical else None,
+                'has_outliers': max_lambda > lambda_critical
+            }
+        
+        # Критерий Шовене
+        if method == 'chauvenet' or method == 'all':
+            z_scores = np.abs((self.data - self.results['mean']) / self.results['std'])
+            # Вероятность для каждой точки
+            p = 2 * (1 - norm.cdf(z_scores))
+            # Ожидаемое количество точек
+            n_expected = self.n * p
+            # Выбросы - где ожидается меньше 0.5 точек
+            outlier_mask = n_expected < 0.5
+            
+            outliers['chauvenet'] = {
+                'outlier_indices': np.where(outlier_mask)[0].tolist(),
+                'outlier_values': self.data[outlier_mask].tolist(),
+                'count': int(np.sum(outlier_mask))
             }
         
         return outliers
@@ -401,6 +493,23 @@ class ExcelReportGenerator:
             'num_format': '0.0000',
         })
         
+        # Форматы для результатов тестов
+        formats['error'] = self.workbook.add_format({
+            'font_size': 11,
+            'bold': True,
+            'bg_color': '#FFC7CE',
+            'border': 1,
+            'font_color': '#9C0006'
+        })
+        
+        formats['success'] = self.workbook.add_format({
+            'font_size': 11,
+            'bold': True,
+            'bg_color': '#C6EFCE',
+            'border': 1,
+            'font_color': '#006100'
+        })
+        
         return formats
     
     def create_main_sheet(self, data: np.ndarray, analyzer: StatisticalAnalyzer):
@@ -436,7 +545,14 @@ class ExcelReportGenerator:
             
             # Формулы Excel
             cell_xj = xl_rowcol_to_cell(row, 1)
-            cell_mean = f'$K$5'  # Ячейка со средним (будет записано позже)
+            
+            # Сначала записываем само среднее в правой части
+            if i == 0:  # Только для первой строки
+                mean_row = stats_start_row + 1  # Строка со средним в правой таблице
+                sheet.write_formula(mean_row-1, 10, f'=AVERAGE(B{row_start+1}:B{row_start+n})', self.formats['number4'])
+            
+            # Теперь используем правильную ссылку на среднее
+            cell_mean = f'$K${stats_start_row+1}'  # K5 если stats_start_row = 4
             
             # Xj - Xср
             sheet.write_formula(row, 2, f'={cell_xj}-{cell_mean}', self.formats['number4'])
@@ -539,8 +655,20 @@ class ExcelReportGenerator:
                 sheet.write(row, 0, test_num, self.formats['data'])
                 sheet.write(row, 1, test_data.get('name', test_name), self.formats['data'])
                 sheet.write(row, 2, test_data.get('statistic', '-'), self.formats['number4'])
-                sheet.write(row, 3, test_data.get('p_value', '-'), self.formats['number4'])
-                sheet.write(row, 4, test_data.get('critical', 0.05), self.formats['number4'])
+                
+                # p-value или критическое значение
+                if 'p_value' in test_data:
+                    sheet.write(row, 3, test_data.get('p_value', '-'), self.formats['number4'])
+                else:
+                    sheet.write(row, 3, '-', self.formats['data'])
+                
+                # Критическое значение
+                if 'critical_value' in test_data:
+                    sheet.write(row, 4, test_data.get('critical_value'), self.formats['number4'])
+                elif 'critical' in test_data:
+                    sheet.write(row, 4, test_data.get('critical'), self.formats['number4'])
+                else:
+                    sheet.write(row, 4, 0.05, self.formats['number4'])
                 
                 is_normal = test_data.get('is_normal', False)
                 conclusion = 'Норма' if is_normal else 'Не норма'
@@ -648,34 +776,104 @@ class ExcelReportGenerator:
         """Создает лист с анализом выбросов"""
         sheet = self.workbook.add_worksheet('Анализ выбросов')
         
-        sheet.merge_range('A1:F1', 'АНАЛИЗ ВЫБРОСОВ', self.formats['title'])
+        sheet.merge_range('A1:G1', 'АНАЛИЗ ВЫБРОСОВ И АНОМАЛИЙ', self.formats['title'])
+        
+        # Настройка ширины столбцов
+        sheet.set_column('A:A', 25)
+        sheet.set_column('B:G', 15)
         
         outliers = analyzer.detect_outliers('all')
         
         row = 3
         
-        # Метод IQR
-        sheet.merge_range(row, 0, row, 5, 'Метод межквартильного размаха (IQR)', self.formats['header'])
+        # Критерий Граббса
+        sheet.merge_range(row, 0, row, 6, 'Критерий Граббса', self.formats['header'])
         row += 2
         
-        iqr_data = outliers.get('iqr', {})
-        sheet.write(row, 0, 'Нижняя граница:', self.formats['subheader'])
-        sheet.write(row, 1, iqr_data.get('lower_fence', 0), self.formats['number4'])
-        sheet.write(row, 2, 'Верхняя граница:', self.formats['subheader'])
-        sheet.write(row, 3, iqr_data.get('upper_fence', 0), self.formats['number4'])
+        grubbs_data = outliers.get('grubbs', {})
+        sheet.write(row, 0, 'Максимальное Z-значение:', self.formats['subheader'])
+        sheet.write(row, 1, grubbs_data.get('max_z_score', 0), self.formats['number4'])
+        sheet.write(row, 2, 'Критическое значение:', self.formats['subheader'])
+        sheet.write(row, 3, grubbs_data.get('critical_value', 0), self.formats['number4'])
         row += 1
-        sheet.write(row, 0, 'Количество выбросов:', self.formats['subheader'])
-        sheet.write(row, 1, iqr_data.get('count', 0), self.formats['data'])
+        if grubbs_data.get('has_outliers'):
+            sheet.write(row, 0, 'Выброс найден:', self.formats['subheader'])
+            sheet.write(row, 1, grubbs_data.get('outlier_value', '-'), self.formats['highlight'])
+            sheet.write(row, 2, 'ВЫБРОС ОБНАРУЖЕН', self.formats['error'])
+        else:
+            sheet.write(row, 0, 'Результат:', self.formats['subheader'])
+            sheet.write(row, 1, 'Выбросов НЕТ', self.formats['success'])
         
-        if iqr_data.get('values'):
-            row += 2
+        # Критерий Романовского (перенесем из проверки нормальности)
+        row += 3
+        sheet.merge_range(row, 0, row, 6, 'Критерий Романовского', self.formats['header'])
+        row += 2
+        
+        romanovsky_values = []
+        for val in data:
+            tau = abs(val - analyzer.results['mean']) / analyzer.results['std']
+            romanovsky_values.append(tau)
+        max_tau = max(romanovsky_values)
+        
+        sheet.write(row, 0, 'Макс. значение τ:', self.formats['subheader'])
+        sheet.write(row, 1, max_tau, self.formats['number4'])
+        sheet.write(row, 2, 'Критическое значение:', self.formats['subheader'])
+        sheet.write(row, 3, 2.96 if len(data) <= 25 else 3.0, self.formats['number4'])  # Упрощенно
+        row += 1
+        sheet.write(row, 0, 'Результат:', self.formats['subheader'])
+        if max_tau > (2.96 if len(data) <= 25 else 3.0):
+            sheet.write(row, 1, 'АНОМАЛИЯ ОБНАРУЖЕНА', self.formats['error'])
+        else:
+            sheet.write(row, 1, 'Аномалий НЕТ', self.formats['success'])
+        
+        # Критерий Шарлье
+        row += 3
+        sheet.merge_range(row, 0, row, 6, 'Критерий Шарлье', self.formats['header'])
+        row += 2
+        
+        sharlie_data = outliers.get('sharlie', {})
+        sheet.write(row, 0, 'Точек за пределами 3σ:', self.formats['subheader'])
+        sheet.write(row, 1, sharlie_data.get('outlier_count', 0), self.formats['data'])
+        sheet.write(row, 2, 'Результат:', self.formats['subheader'])
+        if sharlie_data.get('has_outliers'):
+            sheet.write(row, 3, 'ЕСТЬ АНОМАЛИИ', self.formats['error'])
+        else:
+            sheet.write(row, 3, 'Нет аномалий', self.formats['success'])
+        
+        # Критерий Ирвина
+        row += 3
+        sheet.merge_range(row, 0, row, 6, 'Критерий Ирвина', self.formats['header'])
+        row += 2
+        
+        irwin_data = outliers.get('irwin', {})
+        sheet.write(row, 0, 'Максимальное λ:', self.formats['subheader'])
+        sheet.write(row, 1, irwin_data.get('max_lambda', 0), self.formats['number4'])
+        sheet.write(row, 2, 'Критическое значение:', self.formats['subheader'])
+        sheet.write(row, 3, irwin_data.get('critical_value', 0), self.formats['number4'])
+        row += 1
+        sheet.write(row, 0, 'Результат:', self.formats['subheader'])
+        if irwin_data.get('has_outliers'):
+            sheet.write(row, 1, 'ВЫБРОС ОБНАРУЖЕН', self.formats['error'])
+        else:
+            sheet.write(row, 1, 'Выбросов НЕТ', self.formats['success'])
+        
+        # Критерий Шовене
+        row += 3
+        sheet.merge_range(row, 0, row, 6, 'Критерий Шовене', self.formats['header'])
+        row += 2
+        
+        chauvenet_data = outliers.get('chauvenet', {})
+        sheet.write(row, 0, 'Количество выбросов:', self.formats['subheader'])
+        sheet.write(row, 1, chauvenet_data.get('count', 0), self.formats['data'])
+        if chauvenet_data.get('outlier_values'):
+            row += 1
             sheet.write(row, 0, 'Выбросы:', self.formats['subheader'])
-            for i, val in enumerate(iqr_data['values'][:10]):  # Максимум 10 значений
+            for i, val in enumerate(chauvenet_data['outlier_values'][:5]):
                 sheet.write(row, i + 1, val, self.formats['number4'])
         
-        # Метод 3-сигм
+        # Правило трёх сигм (Райта)
         row += 3
-        sheet.merge_range(row, 0, row, 5, 'Правило трёх сигм (3σ)', self.formats['header'])
+        sheet.merge_range(row, 0, row, 6, 'Критерий Райта (правило 3σ)', self.formats['header'])
         row += 2
         
         sigma3_data = outliers.get('3sigma', {})
@@ -686,24 +884,25 @@ class ExcelReportGenerator:
         row += 1
         sheet.write(row, 0, 'Количество выбросов:', self.formats['subheader'])
         sheet.write(row, 1, sigma3_data.get('count', 0), self.formats['data'])
+        sheet.write(row, 2, 'Результат:', self.formats['subheader'])
+        if sigma3_data.get('count', 0) > 0:
+            sheet.write(row, 3, 'ЕСТЬ ВЫБРОСЫ', self.formats['error'])
+        else:
+            sheet.write(row, 3, 'Нет выбросов', self.formats['success'])
         
-        # Критерий Граббса
+        # Метод IQR
         row += 3
-        sheet.merge_range(row, 0, row, 5, 'Критерий Граббса', self.formats['header'])
+        sheet.merge_range(row, 0, row, 6, 'Метод межквартильного размаха (IQR)', self.formats['header'])
         row += 2
         
-        grubbs_data = outliers.get('grubbs', {})
-        sheet.write(row, 0, 'G(max):', self.formats['subheader'])
-        sheet.write(row, 1, grubbs_data.get('g_max', 0), self.formats['number4'])
-        sheet.write(row, 2, 'G(min):', self.formats['subheader'])
-        sheet.write(row, 3, grubbs_data.get('g_min', 0), self.formats['number4'])
+        iqr_data = outliers.get('iqr', {})
+        sheet.write(row, 0, 'Нижняя граница:', self.formats['subheader'])
+        sheet.write(row, 1, iqr_data.get('lower_fence', 0), self.formats['number4'])
+        sheet.write(row, 2, 'Верхняя граница:', self.formats['subheader'])
+        sheet.write(row, 3, iqr_data.get('upper_fence', 0), self.formats['number4'])
         row += 1
-        sheet.write(row, 0, 'G критическое:', self.formats['subheader'])
-        sheet.write(row, 1, grubbs_data.get('g_critical', 0), self.formats['number4'])
-        sheet.write(row, 2, 'Есть выбросы:', self.formats['subheader'])
-        has_outliers = grubbs_data.get('has_outliers', False)
-        sheet.write(row, 3, 'Да' if has_outliers else 'Нет', 
-                   self.formats['highlight'] if has_outliers else self.formats['data'])
+        sheet.write(row, 0, 'Количество выбросов:', self.formats['subheader'])
+        sheet.write(row, 1, iqr_data.get('count', 0), self.formats['data'])
         
         return sheet
     
@@ -766,7 +965,7 @@ class ExcelProMasterGUI:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("🚀 Excel Pro Master | Space Edition")
+        self.root.title("🚀 Excel Pro Master | Космическая версия")
         
         # Размер и позиционирование окна
         window_width = 950
@@ -864,7 +1063,7 @@ class ExcelProMasterGUI:
         # ASCII арт заголовок
         ascii_art = """
         ╔═══════════════════════════════════════════════╗
-        ║  EXCEL PRO MASTER ◆ SPACE EDITION            ║
+        ║  EXCEL PRO MASTER ◆ КОСМИЧЕСКАЯ ВЕРСИЯ       ║
         ╚═══════════════════════════════════════════════╝
         """
         
@@ -880,7 +1079,7 @@ class ExcelProMasterGUI:
         ascii_label.pack()
         
         subtitle_label = tk.Label(title_frame, 
-                                 text="◈ Statistical Analysis System ◈", 
+                                 text="◈ Система Статистического Анализа ◈", 
                                  font=('Segoe UI', 12),
                                  fg=SPACE_COLORS['text_secondary'],
                                  bg=SPACE_COLORS['bg_dark'])
@@ -892,17 +1091,25 @@ class ExcelProMasterGUI:
         
         # Вкладка 1: Ввод данных (48 строк)
         self.tab1 = tk.Frame(self.notebook, bg=SPACE_COLORS['bg_panel'])
-        self.notebook.add(self.tab1, text='◆ DATA-48')
-        self.create_data_tab(self.tab1, "// INPUT DATA FORMAT: [INDEX] [VALUE]\n// EXAMPLE: 1 100.55", 48)
+        self.notebook.add(self.tab1, text='◆ ДАННЫЕ-48')
+        self.create_data_tab(self.tab1, 
+            "// ВСТАВЬТЕ ДАННЫЕ ИЗ EXCEL ИЛИ ВВЕДИТЕ В ФОРМАТЕ:\n" +
+            "// [НОМЕР] [ЗНАЧЕНИЕ] или просто [ЗНАЧЕНИЕ]\n" +
+            "// ПРИМЕР: 1 100.55 или просто 100.55\n" +
+            "// МОЖНО ВСТАВИТЬ СТОЛБЕЦ ИЗ EXCEL ПРЯМО СЮДА!", 48)
         
         # Вкладка 2: Ввод данных (25 строк)
         self.tab2 = tk.Frame(self.notebook, bg=SPACE_COLORS['bg_panel'])
-        self.notebook.add(self.tab2, text='◆ DATA-25')
-        self.create_data_tab(self.tab2, "// INPUT DATA FORMAT: [INDEX] [VALUE]\n// EXAMPLE: 1 100.55", 25)
+        self.notebook.add(self.tab2, text='◆ ДАННЫЕ-25')
+        self.create_data_tab(self.tab2,
+            "// ВСТАВЬТЕ ДАННЫЕ ИЗ EXCEL ИЛИ ВВЕДИТЕ В ФОРМАТЕ:\n" +
+            "// [НОМЕР] [ЗНАЧЕНИЕ] или просто [ЗНАЧЕНИЕ]\n" +
+            "// ПРИМЕР: 1 100.55 или просто 100.55\n" +
+            "// МОЖНО ВСТАВИТЬ СТОЛБЕЦ ИЗ EXCEL ПРЯМО СЮДА!", 25)
         
         # Вкладка 3: Настройки
         self.tab3 = tk.Frame(self.notebook, bg=SPACE_COLORS['bg_panel'])
-        self.notebook.add(self.tab3, text='◆ CONFIG')
+        self.notebook.add(self.tab3, text='◆ НАСТРОЙКИ')
         self.create_settings_tab(self.tab3)
         
         # Панель управления
@@ -912,7 +1119,7 @@ class ExcelProMasterGUI:
         control_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
         
         # Заголовок панели
-        control_label = tk.Label(control_frame, text="◈ MISSION CONTROL ◈",
+        control_label = tk.Label(control_frame, text="◈ ЦЕНТР УПРАВЛЕНИЯ ◈",
                                font=('Segoe UI', 10, 'bold'),
                                fg=SPACE_COLORS['accent'],
                                bg=SPACE_COLORS['bg_panel'])
@@ -922,19 +1129,19 @@ class ExcelProMasterGUI:
         button_frame = tk.Frame(control_frame, bg=SPACE_COLORS['bg_panel'])
         button_frame.pack(fill=tk.X, padx=10, pady=10)
         
-        ttk.Button(button_frame, text="◆ LOAD EXAMPLE", 
+        ttk.Button(button_frame, text="◆ ЗАГРУЗИТЬ ПРИМЕР", 
                   command=self.paste_example, 
                   style='Space.TButton', width=18).pack(side=tk.LEFT, padx=5)
         
-        ttk.Button(button_frame, text="◆ CLEAR DATA", 
+        ttk.Button(button_frame, text="◆ ОЧИСТИТЬ", 
                   command=self.clear_data, 
                   style='Space.TButton', width=18).pack(side=tk.LEFT, padx=5)
         
-        ttk.Button(button_frame, text="◆ IMPORT FILE", 
+        ttk.Button(button_frame, text="◆ ИМПОРТ ФАЙЛА", 
                   command=self.load_from_file, 
                   style='Space.TButton', width=18).pack(side=tk.LEFT, padx=5)
         
-        self.generate_btn = ttk.Button(button_frame, text="▶ LAUNCH ANALYSIS", 
+        self.generate_btn = ttk.Button(button_frame, text="▶ ЗАПУСК АНАЛИЗА", 
                                       command=self.generate_report, 
                                       style='Launch.TButton', width=20)
         self.generate_btn.pack(side=tk.RIGHT, padx=5)
@@ -943,12 +1150,12 @@ class ExcelProMasterGUI:
         status_frame = tk.Frame(main_frame, bg=SPACE_COLORS['bg_dark'])
         status_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
         
-        tk.Label(status_frame, text="STATUS:", 
+        tk.Label(status_frame, text="СТАТУС:", 
                 font=('Segoe UI', 9, 'bold'),
                 fg=SPACE_COLORS['accent'],
                 bg=SPACE_COLORS['bg_dark']).pack(side=tk.LEFT, padx=5)
         
-        self.status_var = tk.StringVar(value="◆ SYSTEM READY")
+        self.status_var = tk.StringVar(value="◆ СИСТЕМА ГОТОВА")
         self.status_bar = tk.Label(status_frame, textvariable=self.status_var,
                                   font=('Courier', 10),
                                   fg=SPACE_COLORS['success'],
@@ -1003,7 +1210,7 @@ class ExcelProMasterGUI:
             self.text_25 = text_widget
         
         # Счетчик строк
-        count_var = tk.StringVar(value=f"◈ ROWS: 0 / {expected_rows}")
+        count_var = tk.StringVar(value=f"◈ СТРОК: 0 / {expected_rows}")
         count_label = tk.Label(frame, 
                               textvariable=count_var,
                               font=('Courier', 10),
@@ -1016,7 +1223,7 @@ class ExcelProMasterGUI:
             content = text_widget.get('1.0', tk.END).strip()
             lines = [l for l in content.split('\n') if l.strip() and not l.startswith('#') and not l.startswith('//')]
             count = len(lines)
-            count_var.set(f"◈ ROWS: {count} / {expected_rows}")
+            count_var.set(f"◈ СТРОК: {count} / {expected_rows}")
             
             # Меняем цвет в зависимости от количества
             if count == 0:
@@ -1034,7 +1241,7 @@ class ExcelProMasterGUI:
         frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
         # Заголовок секции
-        tk.Label(frame, text="◈ OUTPUT DIRECTORY ◈", 
+        tk.Label(frame, text="◈ ПАПКА ДЛЯ СОХРАНЕНИЯ ◈", 
                 font=('Segoe UI', 11, 'bold'),
                 fg=SPACE_COLORS['accent'],
                 bg=SPACE_COLORS['bg_panel']).grid(row=0, column=0, sticky=tk.W, pady=10)
@@ -1054,12 +1261,12 @@ class ExcelProMasterGUI:
                              borderwidth=2)
         path_entry.pack(side=tk.LEFT, padx=(0, 10))
         
-        ttk.Button(path_frame, text="◆ BROWSE", 
+        ttk.Button(path_frame, text="◆ ОБЗОР", 
                   command=self.choose_folder, 
                   style='Space.TButton').pack(side=tk.LEFT)
         
         # Опции анализа
-        tk.Label(frame, text="◈ ANALYSIS OPTIONS ◈", 
+        tk.Label(frame, text="◈ ПАРАМЕТРЫ АНАЛИЗА ◈", 
                 font=('Segoe UI', 11, 'bold'),
                 fg=SPACE_COLORS['accent'],
                 bg=SPACE_COLORS['bg_panel']).grid(row=2, column=0, sticky=tk.W, pady=(20, 10))
@@ -1076,25 +1283,25 @@ class ExcelProMasterGUI:
         
         self.include_charts = tk.BooleanVar(value=True)
         tk.Checkbutton(frame, 
-                      text="◆ Generate Charts & Graphs", 
+                      text="◆ Создавать графики и диаграммы", 
                       variable=self.include_charts,
                       **checkbox_style).grid(row=3, column=0, sticky=tk.W, pady=3)
         
         self.include_outliers = tk.BooleanVar(value=True)
         tk.Checkbutton(frame, 
-                      text="◆ Outliers Detection Analysis", 
+                      text="◆ Анализ выбросов и аномалий", 
                       variable=self.include_outliers,
                       **checkbox_style).grid(row=4, column=0, sticky=tk.W, pady=3)
         
         self.include_normality = tk.BooleanVar(value=True)
         tk.Checkbutton(frame, 
-                      text="◆ Normality Distribution Tests", 
+                      text="◆ Проверка нормальности распределения", 
                       variable=self.include_normality,
                       **checkbox_style).grid(row=5, column=0, sticky=tk.W, pady=3)
         
         self.auto_open = tk.BooleanVar(value=True)
         tk.Checkbutton(frame, 
-                      text="◆ Auto-Open Generated File", 
+                      text="◆ Открыть файл после создания", 
                       variable=self.auto_open,
                       **checkbox_style).grid(row=6, column=0, sticky=tk.W, pady=3)
     
@@ -1170,38 +1377,56 @@ class ExcelProMasterGUI:
                 messagebox.showerror("Ошибка", f"Не удалось загрузить файл:\n{str(e)}")
     
     def parse_data(self, text):
-        """Парсит введенные данные"""
+        """Парсит введенные данные - поддерживает вставку из Excel"""
         lines = text.strip().split('\n')
         data = []
         
         for line in lines:
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith('#') or line.startswith('//'):
                 continue
             
-            # Заменяем запятую на точку
+            # Заменяем запятую на точку для дробной части
             line = line.replace(',', '.')
-            parts = line.split()
             
+            # Разбиваем по табуляции (если копируют из Excel)
+            parts = line.split('\t')
+            if len(parts) == 1:
+                # Если нет табуляции, пробуем по пробелам
+                parts = line.split()
+            
+            # Пробуем найти число в строке
+            value = None
+            
+            # Сначала проверяем второй столбец (если есть)
             if len(parts) >= 2:
                 try:
                     value = float(parts[1])
-                    data.append(value)
                 except ValueError:
-                    continue
-            elif len(parts) == 1:
+                    pass
+            
+            # Если не нашли, проверяем первый столбец
+            if value is None and len(parts) >= 1:
                 try:
                     value = float(parts[0])
-                    data.append(value)
                 except ValueError:
-                    continue
+                    # Если первое значение не число, ищем первое число в строке
+                    for part in parts:
+                        try:
+                            value = float(part)
+                            break
+                        except ValueError:
+                            continue
+            
+            if value is not None:
+                data.append(value)
         
         return np.array(data)
     
     def generate_report(self):
         """Генерирует отчет"""
         try:
-            self.status_var.set("◈ INITIALIZING ANALYSIS...")
+            self.status_var.set("◈ ИНИЦИАЛИЗАЦИЯ АНАЛИЗА...")
             self.generate_btn.config(state='disabled')
             
             # Определяем какая вкладка активна
@@ -1258,7 +1483,7 @@ class ExcelProMasterGUI:
             # Закрываем файл
             report.close()
             
-            self.status_var.set(f"◆ ANALYSIS COMPLETE: {filename}")
+            self.status_var.set(f"◆ АНАЛИЗ ЗАВЕРШЁН: {filename}")
             
             # Открываем файл если нужно
             if self.auto_open.get():
@@ -1269,11 +1494,11 @@ class ExcelProMasterGUI:
                 else:
                     subprocess.run(['xdg-open', output_path])
             
-            messagebox.showinfo("Mission Success", f"Analysis report generated successfully!\n\n{output_path}")
+            messagebox.showinfo("Успех!", f"Отчёт успешно создан!\n\n{output_path}")
             
         except Exception as e:
-            self.status_var.set("◆ ERROR: ANALYSIS FAILED")
-            messagebox.showerror("Mission Failed", f"Error occurred:\n\n{str(e)}")
+            self.status_var.set("◆ ОШИБКА: АНАЛИЗ НЕ ВЫПОЛНЕН")
+            messagebox.showerror("Ошибка", f"Произошла ошибка:\n\n{str(e)}")
         finally:
             self.generate_btn.config(state='normal')
 
